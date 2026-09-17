@@ -1,6 +1,7 @@
 # TN-Listen Generator
 
 Diese Seite wandelt Google-Anmeldungen, die als TSV-Datei exportiert wurden, in eine strukturierte Teilnehmerliste (TN-Liste) für den PDF-Export um.
+Link: [https://derjokko.github.io/tn-list-generator/](https://derjokko.github.io/tn-list-generator/)
 
 ## So nutzt du die Seite
 
