@@ -4,7 +4,8 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width,initial-scale=1">
 	<title>TN-Listen Generator</title>
-    <link rel="icon" type="image/png" href="favicon.png">
+	<!-- primary favicon (ICO) provided by user; SVG kept as fallback -->
+	<link rel="icon" href="assets/favicon.ico">
 	<link rel="stylesheet" href="style.css">
 	<!-- jsPDF + AutoTable CDN -->
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -20,7 +21,7 @@
 				<button id="chooseFileBtn" class="btn-ghost">Datei wählen</button>
 				<span id="fileName" class="file-name">Keine Datei gewählt</span>
 			</div>
-			<button id="loadExample">Beispiel laden</button>
+			<button id="loadExample" class="debug-only">Beispiel laden</button>
 			<!-- PDF Titel moved to config area as a nicer editable card -->
 			<button id="exportPdf" disabled>Als PDF exportieren</button>
 			<button id="saveLocal">Save (local)</button>

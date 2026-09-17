@@ -54,6 +54,9 @@ h1 {
     color: #111;
 }
 
+/* debug-only controls (hidden by default) */
+.debug-only { display: none !important; }
+
 .config {
     border: 1px solid #eee;
     padding: 12px;
