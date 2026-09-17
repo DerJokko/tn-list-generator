@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>TN-Listen Generator</title>
+    <link rel="icon" type="image/x-icon" href="/assets/images/favicon.png">
+	<link rel="stylesheet" href="style.css">
+	<!-- jsPDF + AutoTable CDN -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+	<main>
+		<h1>TN-Listen Generator</h1>
+
+		<section class="controls">
+			<label>TSV Datei: <input id="fileInput" type="file" accept=".tsv,.txt"></label>
+			<button id="loadExample">Beispiel laden</button>
+			<!-- PDF Titel moved to config area as a nicer editable card -->
+			<button id="exportPdf" disabled>Als PDF exportieren</button>
+		</section>
+
+		<section class="config">
+			<h2>Spalten auswählen</h2>
+			<label style="display:block;margin-bottom:8px"><input id="geldToggle" type="checkbox" checked> Geld-Spalte anzeigen</label>
+			<div id="pdfTitleCard" class="title-card" contenteditable="true" data-placeholder="Titel für PDF / Dateiname"></div>
+			<div id="columns"></div>
+			<p>Gruppierung: <span id="groupingInfo">keine ausgewählt</span></p>
+			<div id="mainGroupContainer" class="main-groups"></div>
+		</section>
+
+		<section class="table">
+			<h2>Tabelle</h2>
+			<div id="tableContainer"></div>
+			<div id="othersControls" class="others-controls"></div>
+		</section>
+		<p class="hint">Markiere in der Tabelle Zeilen als "SiFü" (Checkbox). Nur die ausgewählten Spalten werden exportiert. Eine Spalte muss als Gruppierung gewählt werden.</p>
+	</main>
+
+	<script src="script.js"></script>
+</body>
+</html>
