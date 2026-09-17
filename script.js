@@ -311,6 +311,35 @@ function renderPreview(){
   table.appendChild(tbody);
   tableContainer.appendChild(table);
 
+  // counts summary: total participants, Fürus (SiFü), Sipplinge (non-SiFü)
+  const countsDiv = document.createElement('div'); countsDiv.className = 'counts-summary';
+  // compute counts from the ordered groups (only visible rows)
+  let total = 0, sifus = 0;
+  for(const key of order){
+    const groupRows = groups.get(key) || [];
+    total += groupRows.length;
+    sifus += groupRows.filter(r=> r.siFu).length;
+  }
+  const sipplinge = total - sifus;
+  countsDiv.innerHTML = `<strong>Personen:</strong><br>- ${total} Teilnehmer<br>- ${sifus} Fürus<br>- ${sipplinge} Sipplinge`;
+  tableContainer.appendChild(countsDiv);
+
+  // Zähler preview: show counts for each column flagged as 'count'
+  const countIndices = headers.map((_,i)=>i).filter(i=> getColumnFlags(i).count);
+  if(countIndices.length>0){
+    const cb = document.createElement('div'); cb.className = 'counts-breakdown';
+    countIndices.forEach(ci=>{
+      const freq = new Map();
+      rows.forEach(r=>{ const v = (r.cells[ci]||'').trim() || '(leer)'; freq.set(v, (freq.get(v)||0)+1); });
+      const items = Array.from(freq.entries()).sort((a,b)=> b[1]-a[1]);
+      const block = document.createElement('div'); block.className = 'count-block';
+      const title = document.createElement('div'); title.className = 'count-title'; title.textContent = headers[ci]; block.appendChild(title);
+      items.forEach(([val,count])=>{ const line = document.createElement('div'); line.className='count-line'; line.textContent = `- ${count}x  ${val}`; block.appendChild(line); });
+      cb.appendChild(block);
+    });
+    tableContainer.appendChild(cb);
+  }
+
   // removed summary controls for Sonstiges values (inline chips remain in preview)
 }
 
@@ -492,9 +521,19 @@ exportBtn.addEventListener('click', async ()=>{
     });
   }
 
-  // append count summaries (Zähler)
+  // append Personen summary and count summaries (Zähler)
   let y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 8 : 18;
   const pageH = doc.internal.pageSize.getHeight();
+  // Personen summary (total, Fürus, Sipplinge)
+  const total = rows.length;
+  const sifus = rows.filter(r=> !!r.siFu).length;
+  const sipplinge = total - sifus;
+  if(y > pageH - 60){ doc.addPage(); y = 14; }
+  doc.setFontSize(10); doc.text('Personen:', 14, y); y += 5;
+  doc.setFontSize(9); doc.text(`- ${total} Teilnehmer`, 18, y); y += 5;
+  doc.text(`- ${sifus} Fürus`, 18, y); y += 5;
+  doc.text(`- ${sipplinge} Sipplinge`, 18, y); y += 8;
+
   if(countIndices.length>0){
     if(y > pageH - 40){ doc.addPage(); y = 14; }
     for(const ci of countIndices){
