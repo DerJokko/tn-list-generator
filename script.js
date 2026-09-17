@@ -31,7 +31,9 @@ fileInput.addEventListener('change', async (e)=>{
   const f = e.target.files[0];
   if(!f) return;
   const text = await f.text();
-  handleTSV(text);
+  // when loading a TSV while having existing rows, merge new rows based on Zeitstempel
+  const parsed = parseTSV(text);
+  mergeTSV(parsed);
 });
 
 loadExample.addEventListener('click', async ()=>{
@@ -39,12 +41,60 @@ loadExample.addEventListener('click', async ()=>{
     const resp = await fetch('tests/input.tsv');
     if(!resp.ok) throw new Error('Fetch failed');
     const txt = await resp.text();
-    handleTSV(txt);
+    const parsed = parseTSV(txt);
+    mergeTSV(parsed);
   }catch(err){
     alert('Beispiel konnte nicht geladen werden. Lade eine Datei manuell.');
     console.error(err);
   }
 });
+
+function mergeTSV(parsed){
+  if(!parsed || !parsed.headers) return;
+  // first load
+  if(!headers || headers.length===0){
+    headers = parsed.headers;
+    rows = parsed.rows.map(cells=>({cells, siFu:false, geld:false}));
+    renderColumnControls();
+    renderMainGroupOptions();
+    renderPreview();
+    exportBtn.disabled = false;
+    ensureOthersSelections(headers.map((_,i)=>i).filter(i=> getColumnFlags(i).others && !getColumnFlags(i).hidden));
+    return;
+  }
+  // try to merge new rows by Zeitstempel
+  const tzName = 'Zeitstempel';
+  const curTzIdx = headers.indexOf(tzName);
+  const parsedTzIdx = parsed.headers.indexOf(tzName);
+  if(parsedTzIdx === -1 || curTzIdx === -1){
+    // cannot merge uniquely - append all
+    parsed.rows.forEach(cells=> rows.push({cells, siFu:false, geld:false}));
+  } else {
+    // prepare mapping from current headers to parsed headers
+    const mapping = headers.map(h=> parsed.headers.indexOf(h));
+    parsed.rows.forEach(cells=>{
+      const tzVal = cells[parsedTzIdx] || '';
+      const exists = rows.some(r=> String(r.cells[curTzIdx]||'') === String(tzVal||''));
+      if(!exists){
+        let aligned;
+        if(mapping.every(mi=> mi>=0)){
+          aligned = mapping.map(mi=> cells[mi] || '');
+        } else if(cells.length === headers.length){
+          aligned = cells;
+        } else {
+          aligned = headers.map((_,i)=> cells[i] || '');
+        }
+        rows.push({cells:aligned, siFu:false, geld:false});
+      }
+    });
+  }
+  // re-render preview (columns unchanged)
+  renderMainGroupOptions();
+  renderPreview();
+  exportBtn.disabled = false;
+  // update othersSelections sets
+  ensureOthersSelections(headers.map((_,i)=>i).filter(i=> getColumnFlags(i).others && !getColumnFlags(i).hidden));
+}
 
 function parseTSV(text){
   const lines = text.replace(/\r/g,'').split('\n').filter(l=>l.trim().length>0);
@@ -235,7 +285,7 @@ function renderPreview(){
           span.textContent = raw;
           span.dataset.col = ci; span.dataset.val = raw;
           span.classList.add(isSelected? 'selected':'deselected');
-          span.addEventListener('click', ()=>{ toggleOtherValue(ci, raw); });
+          // Sonstiges editing removed — chips are now read-only
           td.appendChild(span); td.appendChild(document.createTextNode(' '));
         });
         tr.appendChild(td);
@@ -459,3 +509,111 @@ exportBtn.addEventListener('click', async ()=>{
 
   doc.save(title + '.pdf');
 });
+
+  // --- Save / Load / Export settings and savefile ---
+  const STORAGE_KEY = 'tnListGenerator.settings.v1';
+
+  function collectSettings(){
+    return {
+      headers,
+      rows: rows.map(r=> ({ cells: r.cells, siFu: !!r.siFu, geld: !!r.geld })),
+      selectedColumns: getSelectedColumnIndexes(),
+      grouping: getGroupingIndex(),
+      main: selectedMainValue || '',
+      others: Object.fromEntries(Object.entries(othersSelections).map(([k,s])=>[k, Array.from(s)])),
+      columnFlags: Object.fromEntries(headers.map((_,i)=>[i, getColumnFlags(i)])),
+      geld: !!(geldToggle && geldToggle.checked),
+      title: (pdfTitleCard && (pdfTitleCard.innerText||pdfTitleCard.textContent||'').trim()) || ''
+    };
+  }
+
+  function applySettings(obj){
+    if(!obj) return;
+    if(obj.headers && Array.isArray(obj.headers)){
+      headers = obj.headers;
+    }
+    if(obj.rows && Array.isArray(obj.rows)){
+      rows = obj.rows.map(r=>({ cells: r.cells || [], siFu: !!r.siFu, geld: !!r.geld }));
+    }
+    renderColumnControls();
+    // apply flags for selected columns and stored columnFlags
+    if(obj.columnFlags && typeof obj.columnFlags === 'object'){
+      const allInputs = Array.from(columnsDiv.querySelectorAll('input[data-col-index]'));
+      allInputs.forEach(i=>{
+        const idx = Number(i.dataset.colIndex);
+        const flag = i.dataset.flag;
+        const flagsForIdx = obj.columnFlags[idx];
+        if(flagsForIdx && flag){
+          i.checked = !!flagsForIdx[flag];
+        } else if(flag === 'hidden'){
+          // default hidden true if not present
+          i.checked = !!(flagsForIdx ? flagsForIdx.hidden : true);
+        }
+        i.dispatchEvent(new Event('change'));
+      });
+    } else if(Array.isArray(obj.selectedColumns)){
+      // fallback: set 'col' checkbox states from selectedColumns
+      const colInputs = Array.from(columnsDiv.querySelectorAll('input[data-flag="col"]'));
+      colInputs.forEach(i=>{ const idx = Number(i.dataset.colIndex); i.checked = obj.selectedColumns.includes(idx); i.dispatchEvent(new Event('change')); });
+    }
+    // grouping
+    if(typeof obj.grouping === 'number'){
+      const rb = columnsDiv.querySelector('input[type=radio][data-col-index="'+obj.grouping+'"]');
+      if(rb){ rb.checked = true; rb.dispatchEvent(new Event('change')); }
+    }
+    selectedMainValue = obj.main || '';
+    if(selectedMainValue){ Array.from(mainGroupContainer.children).forEach(c=>{ if(c.textContent===selectedMainValue) c.classList.add('active'); }); }
+
+    othersSelections = {};
+    if(obj.others){ Object.entries(obj.others).forEach(([k,arr])=>{ othersSelections[k] = new Set(Array.isArray(arr)?arr:[]); }); }
+
+    if(geldToggle) geldToggle.checked = !!obj.geld;
+    if(pdfTitleCard && obj.title) pdfTitleCard.innerText = obj.title || '';
+    renderMainGroupOptions();
+    renderPreview();
+    // enable export if we have headers and rows
+    try{ if(typeof exportBtn !== 'undefined' && exportBtn){ exportBtn.disabled = !(headers && headers.length>0 && rows && rows.length>0); } }catch(e){ /* ignore */ }
+  }
+
+  // local store format: { saves: { title: settings }, order: [title,...] }
+  function getStore(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return { saves:{}, order:[] };
+      const parsed = JSON.parse(raw);
+      // If already in new format, return as-is
+      if(parsed && typeof parsed === 'object' && parsed.saves && parsed.order && typeof parsed.saves === 'object' && Array.isArray(parsed.order)){
+        return parsed;
+      }
+      // Legacy format: treat parsed as a single settings object and migrate
+      const title = (parsed && parsed.title && String(parsed.title).trim()) ? String(parsed.title).trim() : 'Autosave';
+      const store = { saves: {}, order: [] };
+      store.saves[title] = parsed;
+      store.order.push(title);
+      // persist migrated store
+      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }catch(e){ /* ignore persist error */ }
+      return store;
+    }catch(e){ return { saves:{}, order:[] }; }
+  }
+  function setStore(store){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }catch(e){ console.error('store save failed', e); } }
+
+  function refreshSaveList(){ const sel = document.getElementById('saveList'); if(!sel) return; sel.innerHTML = '<option value="">-- gespeicherte Zustände --</option>'; const store = getStore(); store.order.forEach(name=>{ const opt = document.createElement('option'); opt.value = name; opt.textContent = name; sel.appendChild(opt); }); }
+
+  function saveCurrentAsNamed(){ let title = (pdfTitleCard && (pdfTitleCard.innerText||pdfTitleCard.textContent||'').trim()) || ''; if(!title) title = prompt('Bitte Namen für den Save eingeben'); if(!title) return; const store = getStore(); const settings = collectSettings(); store.saves[title] = settings; if(!store.order.includes(title)) store.order.push(title); setStore(store); refreshSaveList(); alert('Save "'+title+'" gespeichert.'); }
+
+  function loadSelectedSave(){ const sel = document.getElementById('saveList'); if(!sel) { alert('Keine Save‑Liste gefunden'); return; } const name = sel.value; if(!name){ alert('Bitte einen gespeicherten Stand wählen.'); return; } const store = getStore(); if(!store.saves[name]){ alert('Save nicht gefunden: '+name); return; } applySettings(store.saves[name]); alert('Save "'+name+'" geladen.'); }
+
+  function deleteSelectedSave(){ const sel = document.getElementById('saveList'); if(!sel) return; const name = sel.value; if(!name) { alert('Bitte einen gespeicherten Stand wählen.'); return; } if(!confirm('Save "'+name+'" wirklich löschen?')) return; const store = getStore(); delete store.saves[name]; store.order = store.order.filter(n=> n!==name); setStore(store); refreshSaveList(); alert('Save gelöscht.'); }
+
+  function exportSaveFile(){ const data = JSON.stringify(collectSettings(), null, 2); const blob = new Blob([data], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'tn-list-save.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+
+  function importSaveFile(file){ const r = new FileReader(); r.onload = ()=>{ try{ const obj = JSON.parse(r.result); applySettings(obj); alert('Savefile importiert.'); }catch(e){ alert('Import fehlgeschlagen: '+e.message); } }; r.readAsText(file); }
+
+  // wire UI buttons
+  const saveLocalBtn = document.getElementById('saveLocal'); if(saveLocalBtn) saveLocalBtn.addEventListener('click', saveCurrentAsNamed);
+  const loadLocalBtn = document.getElementById('loadLocal'); if(loadLocalBtn) loadLocalBtn.addEventListener('click', loadSelectedSave);
+  const deleteSaveBtn = document.getElementById('deleteSave'); if(deleteSaveBtn) deleteSaveBtn.addEventListener('click', deleteSelectedSave);
+  const exportSaveBtn = document.getElementById('exportSaveFile'); if(exportSaveBtn) exportSaveBtn.addEventListener('click', exportSaveFile);
+  const importInput = document.getElementById('importSaveFile'); const importBtn = document.getElementById('importSaveBtn'); if(importBtn && importInput){ importBtn.addEventListener('click', ()=> importInput.click()); importInput.addEventListener('change', e=>{ if(e.target.files && e.target.files[0]) importSaveFile(e.target.files[0]); }); }
+  // populate save list on load
+  refreshSaveList();
