@@ -24,17 +24,22 @@ const mainGroupContainer = document.getElementById('mainGroupContainer');
 const pdfTitleCard = document.getElementById('pdfTitleCard');
 let selectedMainValue = '';
 const geldToggle = document.getElementById('geldToggle');
+const chooseFileBtn = document.getElementById('chooseFileBtn');
+const fileNameSpan = document.getElementById('fileName');
 // state for Sonstiges value selections: { colIdx: Set(selectedValues) }
 let othersSelections = {};
 
 fileInput.addEventListener('change', async (e)=>{
   const f = e.target.files[0];
   if(!f) return;
+  if(fileNameSpan) fileNameSpan.textContent = f.name;
   const text = await f.text();
   // when loading a TSV while having existing rows, merge new rows based on Zeitstempel
   const parsed = parseTSV(text);
   mergeTSV(parsed);
 });
+
+if(chooseFileBtn){ chooseFileBtn.addEventListener('click', ()=>{ if(fileInput) fileInput.click(); }); }
 
 loadExample.addEventListener('click', async ()=>{
   try{
@@ -123,7 +128,7 @@ function renderColumnControls(){
     // top row: radio + column name
     const top = document.createElement('div'); top.className = 'top-row';
     const rb = document.createElement('input'); rb.type='radio'; rb.name='grouping'; rb.dataset.colIndex=idx;
-    rb.addEventListener('change', ()=>{ groupingInfo.textContent = headers[idx]; renderMainGroupOptions(); renderPreview(); });
+    rb.addEventListener('change', ()=>{ groupingInfo.textContent = headers[idx]; selectedMainValue = ''; renderMainGroupOptions(); renderPreview(); });
     const title = document.createElement('span'); title.textContent = h;
     top.appendChild(rb); top.appendChild(title);
 
@@ -176,9 +181,10 @@ function getGroupingIndex(){
 function renderMainGroupOptions(){
   mainGroupContainer.innerHTML = '';
   const grouping = getGroupingIndex();
-  selectedMainValue = '';
-  if(grouping<0) return;
+  if(grouping<0){ selectedMainValue = ''; return; }
   const seen = Array.from(new Set(rows.map(r=> r.cells[grouping] ?? ''))).sort((a,b)=> String(a).localeCompare(String(b),'de'));
+  // if previously selected main value is not present for this grouping, clear it
+  if(selectedMainValue && !seen.includes(selectedMainValue)) selectedMainValue = '';
   seen.forEach(k=>{
     const btn = document.createElement('button'); btn.type='button'; btn.textContent = k || '(leer)';
     btn.addEventListener('click', ()=>{
@@ -187,6 +193,7 @@ function renderMainGroupOptions(){
       if(selectedMainValue) btn.classList.add('active');
       renderPreview();
     });
+    if(selectedMainValue && String(selectedMainValue) === String(k)) btn.classList.add('active');
     mainGroupContainer.appendChild(btn);
   });
 }

@@ -15,12 +15,18 @@
 		<h1>TN-Listen Generator</h1>
 
 		<section class="controls">
-			<label>TSV Datei: <input id="fileInput" type="file" accept=".tsv,.txt"></label>
+			<div class="file-control">
+				<input id="fileInput" type="file" accept=".tsv,.txt" style="display:none">
+				<button id="chooseFileBtn" class="btn-ghost">Datei wählen</button>
+				<span id="fileName" class="file-name">Keine Datei gewählt</span>
+			</div>
 			<button id="loadExample">Beispiel laden</button>
 			<!-- PDF Titel moved to config area as a nicer editable card -->
 			<button id="exportPdf" disabled>Als PDF exportieren</button>
 			<button id="saveLocal">Save (local)</button>
-			<select id="saveList"><option value="">-- gespeicherte Zustände --</option></select>
+			<div class="save-select">
+				<select id="saveList"><option value="">-- gespeicherte Zustände --</option></select>
+			</div>
 			<button id="loadLocal">Load (selected)</button>
 			<button id="deleteSave">Delete (selected)</button>
 			<button id="exportSaveFile">Export Savefile</button>
