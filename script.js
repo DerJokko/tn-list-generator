@@ -230,7 +230,7 @@ function renderPreview(){
   table.className = 'preview';
   const thead = document.createElement('thead');
   const hrow = document.createElement('tr');
-  hrow.appendChild(document.createElement('th')).textContent = 'SiFü';
+  hrow.appendChild(document.createElement('th')).textContent = 'FüRu';
   // headers: visible normal columns (left), Sonstiges, grouping (rightmost)
   const selectedNormal = selected.filter(ci=> !sonIndices.includes(ci));
   const afterCols = selectedNormal.filter(ci=> ci !== grouping);
